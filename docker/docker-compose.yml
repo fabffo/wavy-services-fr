@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL ─────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: wavy_postgres
+    environment:
+      POSTGRES_USER: wavy
+      POSTGRES_PASSWORD: wavy_password
+      POSTGRES_DB: wavy
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wavy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wavy_net
+
+  # ── Backend Express ────────────────────────────────────────────
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: wavy_backend
+    environment:
+      DATABASE_URL: postgres://wavy:wavy_password@postgres:5432/wavy
+      DATABASE_SSL: "false"
+      JWT_SECRET: ${JWT_SECRET:-change_this_in_production}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      PORT: "3000"
+    volumes:
+      - cv_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - wavy_net
+    restart: unless-stopped
+
+  # ── Frontend Nginx ─────────────────────────────────────────────
+  frontend:
+    image: nginx:alpine
+    container_name: wavy_frontend
+    volumes:
+      - ../frontend/dist:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    networks:
+      - wavy_net
+    restart: unless-stopped
+
+  # ── Reverse proxy ──────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: wavy_proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - wavy_net
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  cv_uploads:
+
+networks:
+  wavy_net:
+    driver: bridge

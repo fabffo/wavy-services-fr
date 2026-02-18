@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.env.local
+frontend/.env
+backend/.env
+docker/.env
+frontend/dist/
+uploads/
+*.log
