@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
-import multer from 'multer';
+import multer, { StorageEngine } from 'multer';
 import { query, queryOne } from '../db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/roles.js';
@@ -72,11 +72,16 @@ router.post('/contact', async (req: Request, res: Response) => {
 const uploadsDir = path.join(process.cwd(), 'uploads', 'cvs');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`),
+const storage: StorageEngine = multer.diskStorage({
+  destination: (_req: any, _file: any, cb: any) => cb(null, uploadsDir),
+  filename: (_req: any, file: any, cb: any) => cb(null, `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`),
 });
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+
+// Extend Request type for multer
+declare module 'express-serve-static-core' {
+  interface Request { file?: Express.Multer.File; }
+}
 
 // POST /api/upload  (public — CV from job application)
 router.post('/upload', upload.single('file'), (req: Request, res: Response) => {
@@ -86,7 +91,7 @@ router.post('/upload', upload.single('file'), (req: Request, res: Response) => {
 
 // GET /api/uploads/cvs/:filename  (admin)
 router.get('/uploads/cvs/:filename', requireAuth, requireRole('admin'), (req: Request, res: Response) => {
-  const filePath = path.join(uploadsDir, req.params.filename);
+  const filePath = path.join(uploadsDir, String(req.params.filename));
   if (!fs.existsSync(filePath)) { res.status(404).json({ error: 'Fichier introuvable' }); return; }
   res.sendFile(filePath);
 });

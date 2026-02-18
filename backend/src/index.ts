@@ -97,8 +97,8 @@ function parseFilters(query: Record<string, any>): { where: string; params: any[
 }
 
 app.all('/api/db/:table', requireAuth, async (req: AuthRequest, res) => {
-  const table = req.params.table;
-  if (!ALLOWED_TABLES[table]) { res.status(403).json({ error: 'Table non autorisée' }); return; }
+  const table = String(req.params.table);
+  if (!(table in ALLOWED_TABLES)) { res.status(403).json({ error: 'Table non autorisée' }); return; }
 
   try {
     const { where, params } = parseFilters(req.query as any);
