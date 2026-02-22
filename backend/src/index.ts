@@ -27,18 +27,7 @@ app.use(express.json({ limit: '10mb' }));
 
 // ── Routes ────────────────────────────────────────────────────────
 app.use('/api/auth', authRouter);
-
-// Edge Functions compatibility (send-otp / verify-otp)
-app.use('/api/functions/send-otp', (req, res, next) => { req.url = '/send'; next(); }, otpRouter);
-app.use('/api/functions/verify-otp', (req, res, next) => { req.url = '/verify'; next(); }, otpRouter);
-
-// Edge Functions compatibility (CRA)
-app.use('/api/functions/send-cra-validation', (req, res, next) => { req.url = '/send-validation'; next(); }, craRouter);
-app.use('/api/functions/validate-cra', (req, res, next) => { req.url = '/validate'; next(); }, craRouter);
-
-// Edge Functions compatibility (create-user)
-app.use('/api/functions/create-user', (req, res, next) => { req.url = '/create'; next(); }, usersRouter);
-
+app.use('/api/otp', otpRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/jobs', jobsRouter);
 app.use('/api/trainings', trainingsRouter);
@@ -88,10 +77,17 @@ function parseFilters(query: Record<string, any>): { where: string; params: any[
     const ltMatch = String(val).match(/^lt\.(.+)$/);
     const col = key.replace(/[^a-zA-Z0-9_]/g, '');
 
-    if (eqMatch) { params.push(decodeURIComponent(eqMatch[1])); conditions.push(`${col} = $${params.length}`); }
-    else if (neqMatch) { params.push(decodeURIComponent(neqMatch[1])); conditions.push(`${col} != $${params.length}`); }
+    const inMatch = String(val).match(/^in\.\((.+)\)$/);
+    // Use ::text cast to handle enum columns transparently
+    if (eqMatch) { params.push(decodeURIComponent(eqMatch[1])); conditions.push(`${col}::text = $${params.length}`); }
+    else if (neqMatch) { params.push(decodeURIComponent(neqMatch[1])); conditions.push(`${col}::text != $${params.length}`); }
     else if (gtMatch) { params.push(decodeURIComponent(gtMatch[1])); conditions.push(`${col} > $${params.length}`); }
     else if (ltMatch) { params.push(decodeURIComponent(ltMatch[1])); conditions.push(`${col} < $${params.length}`); }
+    else if (inMatch) {
+      const vals = inMatch[1].split(',').map(v => decodeURIComponent(v.trim()));
+      const placeholders = vals.map((v) => { params.push(v); return `$${params.length}`; });
+      conditions.push(`${col}::text = ANY(ARRAY[${placeholders.join(',')}])`);
+    }
   }
   return { where: conditions.length ? 'WHERE ' + conditions.join(' AND ') : '', params };
 }
@@ -113,14 +109,19 @@ app.all('/api/db/:table', requireAuth, async (req: AuthRequest, res) => {
       );
       res.json(rows);
     } else if (req.method === 'POST') {
-      const keys = Object.keys(req.body).filter(k => /^[a-zA-Z0-9_]+$/.test(k));
-      const vals = keys.map(k => req.body[k]);
-      const placeholders = keys.map((_, i) => `$${i + 1}`);
-      const { rows } = await pool.query(
-        `INSERT INTO public.${table} (${keys.join(',')}) VALUES (${placeholders.join(',')}) RETURNING *`,
-        vals
-      );
-      res.status(201).json(rows[0]);
+      const bodyArr = Array.isArray(req.body) ? req.body : [req.body];
+      const allRows: any[] = [];
+      for (const item of bodyArr) {
+        const keys = Object.keys(item).filter(k => /^[a-zA-Z0-9_]+$/.test(k));
+        const vals = keys.map(k => item[k]);
+        const placeholders = keys.map((_, i) => `$${i + 1}`);
+        const { rows } = await pool.query(
+          `INSERT INTO public.${table} (${keys.join(',')}) VALUES (${placeholders.join(',')}) RETURNING *`,
+          vals
+        );
+        allRows.push(rows[0]);
+      }
+      res.status(201).json(Array.isArray(req.body) ? allRows : allRows[0]);
     } else if (req.method === 'PATCH') {
       const keys = Object.keys(req.body).filter(k => /^[a-zA-Z0-9_]+$/.test(k));
       const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');

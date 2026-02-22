@@ -12,11 +12,14 @@ import OTPVerification from "@/components/auth/OTPVerification";
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showOTPVerification, setShowOTPVerification] = useState(false);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  const resetToken = new URLSearchParams(window.location.search).get("reset");
 
   useEffect(() => {
     // Redirect if already logged in
@@ -150,6 +153,47 @@ const Auth = () => {
     }
     setLoading(false);
   };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await supabase.post('/api/auth/reset-password-confirm', { token: resetToken, password: newPassword });
+      toast.success("Mot de passe défini avec succès ! Vous pouvez maintenant vous connecter.");
+      navigate("/auth");
+    } catch (error: any) {
+      toast.error(error.message || "Lien invalide ou expiré");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (resetToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-secondary p-4">
+        <div className="w-full max-w-md bg-card p-8 rounded-xl shadow-2xl">
+          <h1 className="text-2xl font-bold text-center mb-6">Définir mon mot de passe</h1>
+          <form onSubmit={handleResetPassword} className="space-y-6">
+            <div>
+              <Label htmlFor="new-password">Nouveau mot de passe</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                minLength={6}
+                placeholder="Minimum 6 caractères"
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Enregistrement..." : "Définir mon mot de passe"}
+            </Button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (showOTPVerification && pendingUserId) {
     return (

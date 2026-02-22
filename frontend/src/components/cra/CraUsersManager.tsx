@@ -45,23 +45,8 @@ export function CraUsersManager() {
   const { data: craUsers, isLoading: loadingUsers, refetch: refetchUsers } = useQuery({
     queryKey: ["cra-users"],
     queryFn: async () => {
-      const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "user_cra");
-
-      if (rolesError) throw rolesError;
-
-      if (!roles || roles.length === 0) return [];
-
-      const userIds = roles.map(r => r.user_id);
-      const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("*")
-        .in("id", userIds);
-
-      if (profilesError) throw profilesError;
-      return profiles;
+      const users = await supabase.get('/api/users');
+      return users.filter((u: any) => Array.isArray(u.roles) && u.roles.includes('user_cra'));
     },
   });
 

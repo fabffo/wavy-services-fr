@@ -29,42 +29,10 @@ export function CraAdminDashboard() {
   });
 
   const { data: craReports, isLoading, refetch } = useQuery({
-    queryKey: ["admin-cra-reports", filters],
+    queryKey: ["admin-cra-reports"],
     queryFn: async () => {
-      let query = supabase
-        .from("cra_reports")
-        .select(`
-          *,
-          clients (name)
-        `)
-        .order("created_at", { ascending: false });
-
-      if (filters.month) {
-        query = query.eq("month", filters.month);
-      }
-      if (filters.client) {
-        query = query.eq("client_id", filters.client);
-      }
-      if (filters.status) {
-        query = query.eq("status", filters.status as "draft" | "submitted" | "approved" | "rejected");
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      
-      // Fetch profiles separately
-      const userIds = [...new Set(data?.map(c => c.user_id) || [])];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, email, full_name")
-        .in("id", userIds);
-      
-      const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      
-      return data?.map(cra => ({
-        ...cra,
-        profiles: profilesMap.get(cra.user_id),
-      })) || [];
+      const data = await supabase.get('/api/cra');
+      return data || [];
     },
   });
 
@@ -93,9 +61,9 @@ export function CraAdminDashboard() {
     const headers = ["Mois", "Utilisateur", "Email", "Client", "Jours travaillés", "Jours absents", "Statut"];
     const rows = craReports.map(cra => [
       cra.month,
-      cra.profiles?.full_name || "",
-      cra.profiles?.email || "",
-      cra.clients?.name || "",
+      cra.consultant_name || "",
+      cra.consultant_email || "",
+      cra.client_name || "",
       cra.worked_days,
       cra.absent_days,
       statusLabels[cra.status]?.label || cra.status,
@@ -111,13 +79,17 @@ export function CraAdminDashboard() {
   };
 
   const filteredReports = craReports?.filter(cra => {
-    if (!filters.search) return true;
-    const search = filters.search.toLowerCase();
-    return (
-      cra.profiles?.full_name?.toLowerCase().includes(search) ||
-      cra.profiles?.email?.toLowerCase().includes(search) ||
-      cra.clients?.name?.toLowerCase().includes(search)
-    );
+    if (filters.month && cra.month !== filters.month) return false;
+    if (filters.client && cra.client_id !== filters.client) return false;
+    if (filters.status && cra.status !== filters.status) return false;
+    if (filters.search) {
+      const search = filters.search.toLowerCase();
+      const matchesName = cra.consultant_name?.toLowerCase().includes(search);
+      const matchesEmail = cra.consultant_email?.toLowerCase().includes(search);
+      const matchesClient = cra.client_name?.toLowerCase().includes(search);
+      if (!matchesName && !matchesEmail && !matchesClient) return false;
+    }
+    return true;
   });
 
   return (
@@ -266,11 +238,11 @@ export function CraAdminDashboard() {
                       </TableCell>
                       <TableCell>
                         <div>
-                          <p>{cra.profiles?.full_name || "—"}</p>
-                          <p className="text-xs text-muted-foreground">{cra.profiles?.email}</p>
+                          <p>{cra.consultant_name || "—"}</p>
+                          <p className="text-xs text-muted-foreground">{cra.consultant_email}</p>
                         </div>
                       </TableCell>
-                      <TableCell>{cra.clients?.name}</TableCell>
+                      <TableCell>{cra.client_name || "—"}</TableCell>
                       <TableCell>{cra.worked_days}</TableCell>
                       <TableCell>{cra.absent_days}</TableCell>
                       <TableCell>

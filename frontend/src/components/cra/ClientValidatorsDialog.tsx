@@ -26,7 +26,8 @@ interface ClientValidatorsDialogProps {
 }
 
 export function ClientValidatorsDialog({ open, onOpenChange, client }: ClientValidatorsDialogProps) {
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [deleteValidator, setDeleteValidator] = useState<any>(null);
@@ -48,25 +49,33 @@ export function ClientValidatorsDialog({ open, onOpenChange, client }: ClientVal
 
   const handleAddValidator = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim()) {
-      toast.error("Veuillez remplir tous les champs");
+    if (!firstName.trim() && !lastName.trim()) {
+      toast.error("Veuillez saisir au moins un prénom ou un nom");
+      return;
+    }
+    if (!email.trim()) {
+      toast.error("Veuillez saisir un email");
       return;
     }
 
+    const fullName = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
     setLoading(true);
     try {
       const { error } = await supabase
         .from("client_validators")
         .insert({
           client_id: client?.id,
-          name: name.trim(),
+          first_name: firstName.trim() || null,
+          last_name: lastName.trim() || null,
+          name: fullName,
           email: email.trim().toLowerCase(),
         });
 
       if (error) throw error;
 
       toast.success("Valideur ajouté");
-      setName("");
+      setFirstName("");
+      setLastName("");
       setEmail("");
       refetch();
     } catch (error: any) {
@@ -112,12 +121,21 @@ export function ClientValidatorsDialog({ open, onOpenChange, client }: ClientVal
             {/* Add form */}
             <form onSubmit={handleAddValidator} className="flex gap-3 items-end">
               <div className="flex-1 space-y-2">
-                <Label htmlFor="validatorName">Nom</Label>
+                <Label htmlFor="validatorFirstName">Prénom</Label>
                 <Input
-                  id="validatorName"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Jean Dupont"
+                  id="validatorFirstName"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Jean"
+                />
+              </div>
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="validatorLastName">Nom</Label>
+                <Input
+                  id="validatorLastName"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Dupont"
                 />
               </div>
               <div className="flex-1 space-y-2">
@@ -141,6 +159,7 @@ export function ClientValidatorsDialog({ open, onOpenChange, client }: ClientVal
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Prénom</TableHead>
                     <TableHead>Nom</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead className="w-16"></TableHead>
@@ -149,7 +168,7 @@ export function ClientValidatorsDialog({ open, onOpenChange, client }: ClientVal
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center py-6">
+                      <TableCell colSpan={4} className="text-center py-6">
                         Chargement...
                       </TableCell>
                     </TableRow>
@@ -159,8 +178,11 @@ export function ClientValidatorsDialog({ open, onOpenChange, client }: ClientVal
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <User className="h-4 w-4 text-muted-foreground" />
-                            {validator.name}
+                            {validator.first_name || <span className="text-muted-foreground">—</span>}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {validator.last_name || <span className="text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -181,7 +203,7 @@ export function ClientValidatorsDialog({ open, onOpenChange, client }: ClientVal
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
                         Aucun valideur configuré
                       </TableCell>
                     </TableRow>

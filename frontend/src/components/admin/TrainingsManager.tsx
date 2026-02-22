@@ -17,10 +17,7 @@ const TrainingsManager = () => {
   }, []);
 
   const fetchTrainings = async () => {
-    const { data } = await supabase
-      .from("trainings")
-      .select("*, categories(name)")
-      .order("created_at", { ascending: false });
+    const data = await supabase.get('/api/trainings');
     if (data) setTrainings(data);
   };
 
@@ -68,7 +65,7 @@ const TrainingsManager = () => {
                   <p className="text-muted-foreground">
                     {training.modality} 
                     {training.duration_hours && ` • ${training.duration_hours}h`}
-                    {training.categories && ` • ${training.categories.name}`}
+                    {training.category_name && ` • ${training.category_name}`}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
                     Créé le {new Date(training.created_at).toLocaleDateString('fr-FR')}

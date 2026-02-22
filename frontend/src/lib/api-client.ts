@@ -44,11 +44,15 @@ export const api = {
   // ── Auth ──────────────────────────────────────────────────────────
   auth: {
     async signInWithPassword(credentials: { email: string; password: string }) {
-      const data = await request('POST', '/api/auth/login', credentials);
-      if (data.token) {
-        setSession(data.token, data.user);
+      try {
+        const data = await request('POST', '/api/auth/login', credentials);
+        if (data.token) {
+          setSession(data.token, data.user);
+        }
+        return { data: { user: data.user ?? null, session: data.token ? { access_token: data.token, user: data.user } : null, otpRequired: data.otpRequired ?? false }, error: null };
+      } catch (e: any) {
+        return { data: { user: null, session: null }, error: { message: e.message } };
       }
-      return { data: { user: data.user ?? null, session: data.token ? { access_token: data.token, user: data.user } : null, otpRequired: data.otpRequired ?? false }, error: null };
     },
 
     async signUp(params: { email: string; password: string; options?: { data?: any; emailRedirectTo?: string } }) {
@@ -117,8 +121,21 @@ export const api = {
   // ── Edge Functions (remplace supabase.functions.invoke) ───────────
   functions: {
     async invoke(name: string, opts?: { body?: any }) {
-      const data = await request('POST', `/api/functions/${name}`, opts?.body ?? {});
-      return { data, error: null };
+      // Map Supabase Edge Function names to REST endpoints
+      const pathMap: Record<string, string> = {
+        'send-otp':             '/api/otp/send',
+        'verify-otp':           '/api/otp/verify',
+        'create-user':          '/api/users/create',
+        'send-cra-validation':  '/api/cra/send-validation',
+        'validate-cra':         '/api/cra/validate',
+      };
+      const path = pathMap[name] ?? `/api/functions/${name}`;
+      try {
+        const data = await request('POST', path, opts?.body ?? {});
+        return { data, error: null };
+      } catch (e: any) {
+        return { data: null, error: { message: e.message } };
+      }
     },
   },
 
@@ -152,6 +169,9 @@ export const api = {
   async put(path: string, body: any) {
     return request('PUT', path, body);
   },
+  async patch(path: string, body: any) {
+    return request('PATCH', path, body);
+  },
   async delete(path: string) {
     return request('DELETE', path);
   },
@@ -179,11 +199,13 @@ class QueryBuilder {
   gt(col: string, val: any) { this._filters.push(`${col}=gt.${encodeURIComponent(val)}`); return this; }
   lt(col: string, val: any) { this._filters.push(`${col}=lt.${encodeURIComponent(val)}`); return this; }
   gte(col: string, val: any) { this._filters.push(`${col}=gte.${encodeURIComponent(val)}`); return this; }
+  in(col: string, vals: any[]) { this._filters.push(`${col}=in.(${vals.map(v => encodeURIComponent(v)).join(',')})`); return this; }
   order(col: string, opts?: { ascending?: boolean }) { this._order = `${col}:${opts?.ascending === false ? 'desc' : 'asc'}`; return this; }
   limit(n: number) { this._limit = n; return this; }
   single() { this._single = true; return this; }
+  maybeSingle() { this._single = true; return this; }
 
-  insert(body: any) { this._method = 'POST'; this._body = body; return this._exec(); }
+  insert(body: any) { this._method = 'POST'; this._body = body; return this; }
   update(body: any) { this._method = 'PATCH'; this._body = body; return this; }
   delete() { this._method = 'DELETE'; return this; }
 

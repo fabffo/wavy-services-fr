@@ -64,16 +64,7 @@ export function UserAssignmentDialog({ open, onOpenChange, user }: UserAssignmen
     queryKey: ["user-assignments", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from("user_client_assignments")
-        .select(`
-          *,
-          clients:client_id(name),
-          client_validators:default_validator_id(name, email)
-        `)
-        .eq("user_id", user.id);
-      if (error) throw error;
-      return data;
+      return supabase.get('/api/clients/assignments', { userId: user.id });
     },
     enabled: !!user?.id,
   });
@@ -92,16 +83,12 @@ export function UserAssignmentDialog({ open, onOpenChange, user }: UserAssignmen
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from("user_client_assignments")
-        .insert({
-          user_id: user?.id,
-          client_id: clientId,
-          mission_name: missionName.trim() || null,
-          default_validator_id: validatorId || null,
-        });
-
-      if (error) throw error;
+      await supabase.post('/api/clients/assignments', {
+        user_id: user?.id,
+        client_id: clientId,
+        mission_name: missionName.trim() || null,
+        default_validator_id: validatorId || null,
+      });
 
       toast.success("Assignation ajoutée");
       setClientId("");
@@ -122,12 +109,7 @@ export function UserAssignmentDialog({ open, onOpenChange, user }: UserAssignmen
     if (!deleteAssignment) return;
 
     try {
-      const { error } = await supabase
-        .from("user_client_assignments")
-        .delete()
-        .eq("id", deleteAssignment.id);
-
-      if (error) throw error;
+      await supabase.delete(`/api/clients/assignments/${deleteAssignment.id}`);
 
       toast.success("Assignation supprimée");
       refetch();
@@ -234,7 +216,7 @@ export function UserAssignmentDialog({ open, onOpenChange, user }: UserAssignmen
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Building className="h-4 w-4 text-muted-foreground" />
-                            {assignment.clients?.name}
+                            {assignment.client_name}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -248,11 +230,11 @@ export function UserAssignmentDialog({ open, onOpenChange, user }: UserAssignmen
                           )}
                         </TableCell>
                         <TableCell>
-                          {assignment.client_validators ? (
+                          {assignment.validator_name ? (
                             <span>
-                              {assignment.client_validators.name}
+                              {assignment.validator_name}
                               <span className="text-muted-foreground ml-1">
-                                ({assignment.client_validators.email})
+                                ({assignment.validator_email})
                               </span>
                             </span>
                           ) : (

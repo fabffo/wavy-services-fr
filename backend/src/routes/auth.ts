@@ -18,7 +18,7 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 
   const user = await queryOne<{ id: string; email: string; encrypted_password: string }>(
-    `SELECT id, email, encrypted_password FROM auth.users WHERE email = $1`,
+    `SELECT id, email, encrypted_password FROM auth.users WHERE LOWER(email) = LOWER($1)`,
     [email]
   );
 

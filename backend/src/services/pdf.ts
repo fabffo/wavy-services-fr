@@ -16,6 +16,7 @@ interface PdfData {
   monthlyComment: string | null;
   dayDetails: DayDetail[];
   validatedAt: string;
+  validatorName?: string;
 }
 
 export function generateCraPdf(data: PdfData): string {
@@ -115,7 +116,10 @@ export function generateCraPdf(data: PdfData): string {
   doc.line(20, footerY, pageWidth - 20, footerY);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'italic');
-  doc.text(`Document validé le ${data.validatedAt}`, pageWidth / 2, footerY + 8, { align: 'center' });
+  const validationLine = data.validatorName
+    ? `Document validé par ${data.validatorName} le ${data.validatedAt}`
+    : `Document validé le ${data.validatedAt}`;
+  doc.text(validationLine, pageWidth / 2, footerY + 8, { align: 'center' });
   doc.setFontSize(8);
   doc.text('Ce document a été généré automatiquement par Wavy Services', pageWidth / 2, footerY + 13, { align: 'center' });
 

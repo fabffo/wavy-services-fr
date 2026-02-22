@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/api-client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,8 +11,12 @@ export default function CraValidate() {
   const [status, setStatus] = useState<ValidationStatus>("loading");
   const [message, setMessage] = useState("");
   const [details, setDetails] = useState<{ month?: string; clientName?: string }>({});
+  const calledRef = useRef(false);
 
   useEffect(() => {
+    if (calledRef.current) return;
+    calledRef.current = true;
+
     const token = searchParams.get("token");
     const action = searchParams.get("action");
 

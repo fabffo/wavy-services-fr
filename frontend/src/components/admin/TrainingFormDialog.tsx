@@ -40,11 +40,7 @@ const TrainingFormDialog = ({ open, onOpenChange, training, onSuccess }: Trainin
   }, []);
 
   const fetchCategories = async () => {
-    const { data } = await supabase
-      .from("categories")
-      .select("*")
-      .eq("type", "formation")
-      .order("name");
+    const data = await supabase.get('/api/trainings/categories');
     if (data) setCategories(data);
   };
 

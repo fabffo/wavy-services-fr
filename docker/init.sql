@@ -198,6 +198,8 @@ CREATE TABLE public.clients (
 CREATE TABLE public.client_validators (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id  UUID NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
+  first_name TEXT,
+  last_name  TEXT,
   name       TEXT NOT NULL,
   email      TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -205,10 +207,12 @@ CREATE TABLE public.client_validators (
 
 -- Assignations consultant ↔ client
 CREATE TABLE public.user_client_assignments (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  client_id  UUID NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id              UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  client_id            UUID NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
+  mission_name         TEXT,
+  default_validator_id UUID REFERENCES public.client_validators(id) ON DELETE SET NULL,
+  created_at           TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, client_id)
 );
 
@@ -217,6 +221,7 @@ CREATE TABLE public.cra_reports (
   id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id                  UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   client_id                UUID REFERENCES public.clients(id) ON DELETE RESTRICT,
+  mission_name             TEXT,
   company_name             TEXT NOT NULL DEFAULT 'Wavy Services',
   month                    TEXT NOT NULL,
   worked_days              INTEGER NOT NULL DEFAULT 0 CHECK (worked_days >= 0),
@@ -275,3 +280,15 @@ BEGIN
   VALUES (admin_id, '000000', true, NOW() + INTERVAL '10 years')
   ON CONFLICT DO NOTHING;
 END $$;
+
+-- Catégories formations
+INSERT INTO public.categories (name, slug, type) VALUES
+  ('Développement Web',                'developpement-web',       'formation'),
+  ('DevOps & Cloud',                   'devops-cloud',            'formation'),
+  ('Data & Intelligence artificielle', 'data-ia',                 'formation'),
+  ('Cybersécurité',                    'cybersecurite',           'formation'),
+  ('Management & Leadership',          'management-leadership',   'formation'),
+  ('Langues',                          'langues',                 'formation'),
+  ('Bureautique & Office',             'bureautique-office',      'formation'),
+  ('Infrastructure réseau',            'infrastructure-reseau',   'formation')
+ON CONFLICT (slug) DO NOTHING;

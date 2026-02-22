@@ -52,25 +52,34 @@ router.delete('/:id', requireAuth, requireRole('admin'), async (req: AuthRequest
 
 // ── Assignments (consultant ↔ client) ────────────────────────────
 
-// GET /api/clients/assignments?userId=
-router.get('/assignments', requireAuth, requireRole('admin'), async (_req: AuthRequest, res: Response) => {
+// GET /api/clients/assignments?userId=  (admin, or user_cra for own data)
+router.get('/assignments', requireAuth, requireRole('admin', 'user_cra'), async (req: AuthRequest, res: Response) => {
+  const isAdmin = req.user!.roles.includes('admin');
+  const userId = isAdmin ? (req.query.userId as string | undefined) : req.user!.id;
+  const params: any[] = [];
+  const where = userId ? (params.push(userId), 'WHERE a.user_id = $1') : '';
   const rows = await query<any>(
-    `SELECT a.*, c.name AS client_name, p.email AS user_email
+    `SELECT a.*, c.name AS client_name,
+            cv.name AS validator_name, cv.email AS validator_email
      FROM public.user_client_assignments a
      JOIN public.clients c ON c.id = a.client_id
-     JOIN public.profiles p ON p.id = a.user_id`
+     LEFT JOIN public.client_validators cv ON cv.id = a.default_validator_id
+     ${where}
+     ORDER BY c.name`,
+    params
   );
   res.json(rows);
 });
 
 // POST /api/clients/assignments  (admin)
 router.post('/assignments', requireAuth, requireRole('admin'), async (req: AuthRequest, res: Response) => {
-  const { user_id, client_id } = req.body;
-  await query(
-    `INSERT INTO public.user_client_assignments (user_id, client_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-    [user_id, client_id]
+  const { user_id, client_id, mission_name, default_validator_id } = req.body;
+  const row = await queryOne<any>(
+    `INSERT INTO public.user_client_assignments (user_id, client_id, mission_name, default_validator_id)
+     VALUES ($1,$2,$3,$4) ON CONFLICT (user_id, client_id) DO NOTHING RETURNING *`,
+    [user_id, client_id, mission_name || null, default_validator_id || null]
   );
-  res.status(201).json({ success: true });
+  res.status(201).json(row ?? { success: true });
 });
 
 // DELETE /api/clients/assignments/:id  (admin)

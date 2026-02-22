@@ -16,7 +16,8 @@ router.get('/', requireAuth, requireRole('admin', 'user_cra'), async (req: AuthR
   let rows;
   if (isAdmin) {
     rows = await query<any>(
-      `SELECT r.*, p.email AS consultant_email, p.full_name AS consultant_name,
+      `SELECT r.*, p.email AS consultant_email,
+              COALESCE(NULLIF(TRIM(CONCAT(p.first_name, ' ', p.last_name)), ''), p.full_name, p.email) AS consultant_name,
               c.name AS client_name
        FROM public.cra_reports r
        LEFT JOIN public.profiles p ON p.id = r.user_id
@@ -229,19 +230,24 @@ router.post('/validate', async (req, res: Response) => {
     return;
   }
 
-  if (cra.client_validation_status === 'approved' || cra.client_validation_status === 'rejected') {
+  const newStatus = action === 'approve' ? 'approved' : 'rejected';
+  // UPDATE atomique : validation_token IS NOT NULL garantit qu'une seule requête
+  // concurrente peut réussir (évite le double email en cas de double clic ou StrictMode)
+  const updated = await query<any>(
+    `UPDATE public.cra_reports SET client_validation_status=$1::public.cra_validation_status,
+            status=$2::public.cra_status,
+            validated_at=NOW(), validation_token=NULL, updated_at=NOW()
+     WHERE id=$3 AND validation_token IS NOT NULL
+     RETURNING id`,
+    [newStatus, newStatus, cra.id]
+  );
+
+  if (updated.length === 0) {
     res.status(400).json({ success: false, error: 'Déjà traité',
       message: `Ce CRA a déjà été ${cra.client_validation_status === 'approved' ? 'approuvé' : 'rejeté'}.`,
       status: cra.client_validation_status });
     return;
   }
-
-  const newStatus = action === 'approve' ? 'approved' : 'rejected';
-  await query(
-    `UPDATE public.cra_reports SET client_validation_status=$1, validated_at=NOW(),
-            validation_token=NULL, updated_at=NOW() WHERE id=$2`,
-    [newStatus, cra.id]
-  );
 
   const monthDate = new Date(cra.month + '-01');
   const monthLabel = monthDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
@@ -257,6 +263,16 @@ router.post('/validate', async (req, res: Response) => {
         [cra.id]
       );
 
+      let validatorName: string | undefined;
+      if (cra.client_email && cra.client_id) {
+        const validator = await queryOne<any>(
+          `SELECT name FROM public.client_validators WHERE client_id = $1 AND email = $2 LIMIT 1`,
+          [cra.client_id, cra.client_email]
+        );
+        if (validator?.name) validatorName = validator.name;
+      }
+      if (!validatorName && cra.client_email) validatorName = cra.client_email;
+
       const pdfBase64 = generateCraPdf({
         month: monthLabel,
         clientName: cra.client_name ?? 'Non spécifié',
@@ -267,6 +283,7 @@ router.post('/validate', async (req, res: Response) => {
         monthlyComment: cra.monthly_comment,
         dayDetails,
         validatedAt,
+        validatorName,
       });
 
       const attachments = [{

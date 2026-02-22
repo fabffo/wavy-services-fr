@@ -17,22 +17,28 @@ export async function sendOtp(userId: string, email: string): Promise<void> {
     [userId, code, expiresAt.toISOString()]
   );
 
-  await sendEmail({
-    to: email,
-    subject: 'Votre code de vérification Wavy Services',
-    html: `
-      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
-        <h2>Code de vérification</h2>
-        <p>Votre code de connexion à Wavy Services :</p>
-        <div style="font-size: 36px; font-weight: bold; letter-spacing: 8px; text-align: center;
-                    background: #f5f5f5; padding: 24px; border-radius: 8px; margin: 24px 0;">
-          ${code}
+  console.log(`[OTP] Code pour ${email} : ${code}`);
+
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Votre code de vérification Wavy Services',
+      html: `
+        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+          <h2>Code de vérification</h2>
+          <p>Votre code de connexion à Wavy Services :</p>
+          <div style="font-size: 36px; font-weight: bold; letter-spacing: 8px; text-align: center;
+                      background: #f5f5f5; padding: 24px; border-radius: 8px; margin: 24px 0;">
+            ${code}
+          </div>
+          <p style="color: #666;">Ce code est valable 10 minutes.</p>
+          <p style="color: #999; font-size: 12px;">Si vous n'avez pas demandé ce code, ignorez cet email.</p>
         </div>
-        <p style="color: #666;">Ce code est valable 10 minutes.</p>
-        <p style="color: #999; font-size: 12px;">Si vous n'avez pas demandé ce code, ignorez cet email.</p>
-      </div>
-    `,
-  });
+      `,
+    });
+  } catch (err: any) {
+    console.warn(`[OTP] Envoi email échoué pour ${email} :`, err.message);
+  }
 }
 
 export async function checkOtp(

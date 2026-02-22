@@ -1,0 +1,31 @@
+# Override Docker Compose pour la PRODUCTION
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Ce fichier surcharge docker-compose.yml pour la production :
+#  - PostgreSQL : mot de passe sécurisé via variable POSTGRES_PASSWORD
+#  - Backend    : DATABASE_URL mise à jour + FRONTEND_URL correct
+#  - Nginx      : port exposé uniquement sur 127.0.0.1:8080 (Nginx hôte gère le 80/443)
+
+version: "3.9"
+
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est requis}
+
+  backend:
+    environment:
+      DATABASE_URL: postgres://wavy:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est requis}@postgres:5432/wavy
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL est requis}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET est requis}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+    restart: always
+
+  frontend:
+    restart: always
+
+  nginx:
+    # Expose uniquement sur localhost — Nginx hôte fait le reverse proxy SSL
+    ports:
+      - "127.0.0.1:8080:80"
+    restart: always

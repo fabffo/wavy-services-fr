@@ -13,11 +13,11 @@ const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:8080';
 // GET /api/users — admin only
 router.get('/', requireAuth, requireRole('admin'), async (_req: AuthRequest, res: Response) => {
   const users = await query<any>(
-    `SELECT p.id, p.email, p.full_name, p.created_at,
+    `SELECT p.id, p.email, p.first_name, p.last_name, p.full_name, p.created_at,
             ARRAY_AGG(ur.role::text) FILTER (WHERE ur.role IS NOT NULL) AS roles
      FROM public.profiles p
      LEFT JOIN public.user_roles ur ON ur.user_id = p.id
-     GROUP BY p.id, p.email, p.full_name, p.created_at
+     GROUP BY p.id, p.email, p.first_name, p.last_name, p.full_name, p.created_at
      ORDER BY p.created_at DESC`
   );
   res.json(users);
@@ -25,7 +25,7 @@ router.get('/', requireAuth, requireRole('admin'), async (_req: AuthRequest, res
 
 // POST /api/users/create — create user (admin only, replaces create-user Edge Function)
 router.post('/create', requireAuth, requireRole('admin'), async (req: AuthRequest, res: Response) => {
-  const { email, password, role } = req.body;
+  const { email, password, role, first_name, last_name } = req.body;
   if (!email || !password) { res.status(400).json({ error: 'Email et mot de passe requis' }); return; }
 
   const existing = await queryOne('SELECT id FROM auth.users WHERE email = $1', [email]);
@@ -44,9 +44,10 @@ router.post('/create', requireAuth, requireRole('admin'), async (req: AuthReques
     [userId, email, hashed]
   );
 
+  const fullName = [first_name, last_name].filter(Boolean).join(' ') || null;
   await query(
-    `INSERT INTO public.profiles (id, email) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
-    [userId, email]
+    `INSERT INTO public.profiles (id, email, first_name, last_name, full_name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`,
+    [userId, email, first_name || null, last_name || null, fullName]
   );
 
   if (role && role !== 'user') {
@@ -56,7 +57,49 @@ router.post('/create', requireAuth, requireRole('admin'), async (req: AuthReques
     );
   }
 
+  // Envoyer un email de bienvenue avec lien de définition de mot de passe (24h)
+  const resetToken = uuidv4();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await query(
+    `INSERT INTO public.password_reset_tokens (user_id, token, expires_at)
+     VALUES ($1, $2, $3) ON CONFLICT (user_id) DO UPDATE SET token = $2, expires_at = $3`,
+    [userId, resetToken, expiresAt.toISOString()]
+  );
+  const resetUrl = `${FRONTEND_URL}/auth?reset=${resetToken}`;
+  await sendEmail({
+    to: email,
+    subject: 'Bienvenue sur Wavy Services — Définissez votre mot de passe',
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+        <h2>Bienvenue sur Wavy Services</h2>
+        <p>Votre compte a été créé par un administrateur. Cliquez sur le lien ci-dessous pour définir votre mot de passe :</p>
+        <a href="${resetUrl}" style="display:inline-block;background:#0f2a4a;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;margin:16px 0;">
+          Définir mon mot de passe
+        </a>
+        <p style="color:#666;font-size:12px;">Ce lien expire dans 24 heures. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
+      </div>
+    `,
+  });
+
   res.status(201).json({ user: { id: userId, email } });
+});
+
+// PATCH /api/users/:id — update user profile (admin only)
+router.patch('/:id', requireAuth, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  const { first_name, last_name, email } = req.body;
+  const fullName = [first_name, last_name].filter(Boolean).join(' ') || null;
+
+  await query(
+    `UPDATE public.profiles SET first_name=$1, last_name=$2, full_name=$3, email=COALESCE($4, email), updated_at=NOW()
+     WHERE id=$5`,
+    [first_name || null, last_name || null, fullName, email || null, req.params.id]
+  );
+
+  if (email) {
+    await query(`UPDATE auth.users SET email=$1, updated_at=NOW() WHERE id=$2`, [email, req.params.id]);
+  }
+
+  res.json({ success: true });
 });
 
 // DELETE /api/users/:id/roles/:role — admin only
@@ -134,8 +177,8 @@ router.put('/invitations/:id', async (req: AuthRequest, res: Response) => {
   res.json({ success: true });
 });
 
-// POST /api/users/:id/roles — assign role
-router.post('/:id/roles', async (req: AuthRequest, res: Response) => {
+// POST /api/users/:id/roles — assign role (admin only)
+router.post('/:id/roles', requireAuth, requireRole('admin'), async (req: AuthRequest, res: Response) => {
   const { role } = req.body;
   await query(
     `INSERT INTO public.user_roles (user_id, role) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
