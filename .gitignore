@@ -5,6 +5,10 @@ dist/
 frontend/.env
 backend/.env
 docker/.env
+docker/.env.recette
+docker/.env.preprod
+docker/.env.prod
+frontend/.env.recette
 frontend/dist/
 uploads/
 *.log
