@@ -39,6 +39,26 @@ const TrainingFormDialog = ({ open, onOpenChange, training, onSuccess }: Trainin
     fetchCategories();
   }, []);
 
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        title: training?.title || "",
+        slug: training?.slug || "",
+        modality: training?.modality || "presentiel",
+        category_id: training?.category_id || "",
+        duration_hours: training?.duration_hours || "",
+        price: training?.price || "",
+        description_html: training?.description_html || "",
+        goals_html: training?.goals_html || "",
+        program_html: training?.program_html || "",
+        prerequisites_html: training?.prerequisites_html || "",
+        audience_html: training?.audience_html || "",
+        status: training?.status || "draft",
+        featured: training?.featured || false
+      });
+    }
+  }, [open, training]);
+
   const fetchCategories = async () => {
     const data = await supabase.get('/api/trainings/categories');
     if (data) setCategories(data);
