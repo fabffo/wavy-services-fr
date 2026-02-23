@@ -10,6 +10,9 @@ version: "3.9"
 
 services:
   postgres:
+    # Port exposé uniquement sur localhost du VPS — accessible via tunnel SSH depuis pgAdmin
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est requis}
 
