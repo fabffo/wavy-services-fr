@@ -56,11 +56,13 @@ services:
     restart: unless-stopped
 
   # ── Reverse proxy ──────────────────────────────────────────────
+  # Les ports sont définis dans les fichiers d'override (docker-compose.preprod.yml, docker-compose.prod.yml)
+  # Pour le développement local, accéder via http://localhost:8080
   nginx:
     image: nginx:alpine
     container_name: wavy_proxy
     ports:
-      - "80:80"
+      - "127.0.0.1:8080:80"
     volumes:
       - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
