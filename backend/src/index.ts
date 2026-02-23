@@ -46,7 +46,7 @@ app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date()
 // ── Generic DB router (QueryBuilder support) ──────────────────────
 // This handles calls from the frontend QueryBuilder: /api/db/:table
 import { pool } from './db.js';
-import { requireAuth } from './middleware/auth.js';
+import { requireAuth, optionalAuth } from './middleware/auth.js';
 import { AuthRequest } from './types.js';
 
 const ALLOWED_TABLES: Record<string, { read: string[]; write: string[] }> = {
@@ -95,9 +95,16 @@ function parseFilters(query: Record<string, any>): { where: string; params: any[
   return { where: conditions.length ? 'WHERE ' + conditions.join(' AND ') : '', params };
 }
 
-app.all('/api/db/:table', requireAuth, async (req: AuthRequest, res) => {
+app.all('/api/db/:table', optionalAuth, async (req: AuthRequest, res) => {
   const table = String(req.params.table);
   if (!(table in ALLOWED_TABLES)) { res.status(403).json({ error: 'Table non autorisée' }); return; }
+
+  const isWrite = req.method !== 'GET';
+  const allowedRoles = isWrite ? ALLOWED_TABLES[table].write : ALLOWED_TABLES[table].read;
+  if (!allowedRoles.includes('*') && !req.user) {
+    res.status(401).json({ error: 'Non authentifié' });
+    return;
+  }
 
   try {
     const { where, params } = parseFilters(req.query as any);
