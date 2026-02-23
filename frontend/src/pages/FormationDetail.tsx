@@ -175,7 +175,7 @@ const FormationDetail = () => {
                 {training.price && (
                   <div className="text-center py-4">
                     <p className="text-sm text-muted-foreground">À partir de</p>
-                    <p className="text-4xl font-bold text-secondary">{training.price}€</p>
+                    <p className="text-4xl font-bold text-primary">{training.price}€</p>
                   </div>
                 )}
 
