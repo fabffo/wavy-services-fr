@@ -1,10 +1,11 @@
-import { 
-  LayoutDashboard, 
-  ClipboardList, 
-  Users, 
-  Building, 
+import {
+  LayoutDashboard,
+  ClipboardList,
+  Users,
+  Building,
   LogOut,
-  ArrowLeft
+  ArrowLeft,
+  Home
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -85,10 +86,19 @@ export function CraSidebar({
             {userEmail}
           </p>
         )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/")}
+          className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent mb-1"
+        >
+          <Home className="h-4 w-4 mr-2" />
+          {!collapsed && "Site vitrine"}
+        </Button>
         {userRole === "admin" && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => navigate("/admin")}
             className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent mb-1"
           >
