@@ -49,16 +49,7 @@ export function CraUserDashboard({ userId }: CraUserDashboardProps) {
   const { data: craReports, isLoading, refetch } = useQuery({
     queryKey: ["user-cra-reports", userId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cra_reports")
-        .select(`
-          *,
-          clients (name)
-        `)
-        .eq("user_id", userId)
-        .order("month", { ascending: false });
-
-      if (error) throw error;
+      const data = await supabase.get("/api/cra");
       return data;
     },
   });
@@ -134,7 +125,7 @@ export function CraUserDashboard({ userId }: CraUserDashboardProps) {
                     <Badge variant={status.variant}>{status.label}</Badge>
                   </div>
                   <CardDescription>
-                    Client: {cra.clients?.name || "Non spécifié"}
+                    Client: {cra.client_name || "Non spécifié"}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

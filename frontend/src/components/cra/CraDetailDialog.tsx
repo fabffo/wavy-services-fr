@@ -123,7 +123,7 @@ export function CraDetailDialog({ open, onOpenChange, cra, isAdmin, onUpdate }: 
               </div>
               <div>
                 <Label className="text-muted-foreground">Client</Label>
-                <p className="font-medium">{cra.clients?.name}</p>
+                <p className="font-medium">{cra.client_name || cra.clients?.name}</p>
               </div>
               {isAdmin && cra.profiles && (
                 <>
