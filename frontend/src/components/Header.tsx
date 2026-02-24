@@ -11,6 +11,7 @@ const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isCraUser, setIsCraUser] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -20,9 +21,10 @@ const Header = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        checkAdminRole(session.user.id);
+        checkRoles(session.user.id);
       } else {
         setIsAdmin(false);
+        setIsCraUser(false);
       }
     });
 
@@ -33,19 +35,18 @@ const Header = () => {
     const { data: { session } } = await supabase.auth.getSession();
     setUser(session?.user ?? null);
     if (session?.user) {
-      checkAdminRole(session.user.id);
+      checkRoles(session.user.id);
     }
   };
 
-  const checkAdminRole = async (userId: string) => {
+  const checkRoles = async (userId: string) => {
     const { data } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .single();
-    
-    setIsAdmin(!!data);
+      .eq("user_id", userId);
+    const roles = (data ?? []).map((r: any) => r.role);
+    setIsAdmin(roles.includes("admin"));
+    setIsCraUser(roles.includes("user_cra"));
   };
 
   const handleLogout = async () => {
@@ -64,14 +65,10 @@ const Header = () => {
     { label: "Formation", path: "/formation" },
     { label: "Bilan", path: "/bilan" },
     { label: "Offres", path: "/offres" },
-    { label: "CRA", path: "/cra/auth" },
     { label: "Contact", path: "/contact" },
   ];
 
-  const isActive = (path: string) => {
-    if (path === "/cra/auth") return location.pathname.startsWith("/cra/");
-    return location.pathname === path;
-  };
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <header className="sticky top-0 z-50 bg-primary text-primary-foreground shadow-lg">
@@ -98,6 +95,14 @@ const Header = () => {
             ))}
             {user ? (
               <div className="flex items-center gap-2 ml-2">
+                {isCraUser && (
+                  <Link to="/cra/dashboard">
+                    <Button variant="secondary" size="sm">
+                      <User className="mr-2" size={16} />
+                      Espace Prestataire
+                    </Button>
+                  </Link>
+                )}
                 {isAdmin && (
                   <Link to="/admin">
                     <Button variant="secondary" size="sm">
@@ -150,6 +155,14 @@ const Header = () => {
             ))}
             {user ? (
               <>
+                {isCraUser && (
+                  <Link to="/cra/dashboard" onClick={() => setIsOpen(false)}>
+                    <Button variant="secondary" size="sm" className="w-full">
+                      <User className="mr-2" size={16} />
+                      Espace Prestataire
+                    </Button>
+                  </Link>
+                )}
                 {isAdmin && (
                   <Link to="/admin" onClick={() => setIsOpen(false)}>
                     <Button variant="secondary" size="sm" className="w-full">
