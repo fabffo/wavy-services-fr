@@ -4,7 +4,7 @@ import { supabase } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { LogOut, Briefcase, GraduationCap, Users, MessageSquare, BarChart, ClipboardList } from "lucide-react";
+import { LogOut, Briefcase, GraduationCap, Users, MessageSquare, BarChart, ClipboardList, Home } from "lucide-react";
 import JobsManager from "@/components/admin/JobsManager";
 import TrainingsManager from "@/components/admin/TrainingsManager";
 import ApplicationsManager from "@/components/admin/ApplicationsManager";
@@ -71,10 +71,16 @@ const Admin = () => {
       <header className="bg-primary text-primary-foreground py-4 px-6 shadow-lg">
         <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold">Administration Wavy Services</h1>
-          <Button variant="outline" onClick={handleLogout} className="bg-white/10 hover:bg-white/20 border-white text-white">
-            <LogOut className="mr-2" size={16} />
-            Déconnexion
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate("/")} className="bg-white/10 hover:bg-white/20 border-white text-white">
+              <Home className="mr-2" size={16} />
+              Site vitrine
+            </Button>
+            <Button variant="outline" onClick={handleLogout} className="bg-white/10 hover:bg-white/20 border-white text-white">
+              <LogOut className="mr-2" size={16} />
+              Déconnexion
+            </Button>
+          </div>
         </div>
       </header>
 
